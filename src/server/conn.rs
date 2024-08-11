@@ -1,11 +1,13 @@
+use super::{
+    request::{HeaderMap, Method, Request},
+    response::ResponseBuilder,
+};
 use anyhow::Result;
 use std::{net::SocketAddr, path::PathBuf};
 use tokio::{
-    io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReader},
+    io::{AsyncBufReadExt, BufReader},
     net::TcpStream,
 };
-
-use super::request::{Method, Request};
 
 pub struct Conn {
     stream: TcpStream,
@@ -21,7 +23,11 @@ impl Conn {
         loop {
             let mut r = BufReader::new(&mut self.stream);
             let req = RequestParser::new(r).parse().await?;
+
+            ResponseBuilder::default().send(&mut self.stream).await?;
         }
+
+        Ok(())
     }
 }
 
@@ -44,13 +50,14 @@ where
 
     pub async fn parse(&mut self) -> Result<Request> {
         let (proto, path, method) = self.parse_head().await?;
+        let header = self.parse_header().await?;
 
         Ok(Request {
             method,
             proto,
             path,
-            header: todo!(),
-            body: todo!(),
+            header,
+            body: None,
         })
     }
 
@@ -61,17 +68,38 @@ where
         let mut split = self.buf.split(' ');
         let proto = split
             .next()
-            .ok_or_else(|| anyhow::anyhow!("invalid header"))?
+            .ok_or_else(|| anyhow::anyhow!("invalid header: no proto"))?
             .to_string();
         let path = split
             .next()
-            .ok_or_else(|| anyhow::anyhow!("invalid header"))?
+            .ok_or_else(|| anyhow::anyhow!("invalid header: no path"))?
             .into();
         let method = split
             .next()
-            .ok_or_else(|| anyhow::anyhow!("invalid header"))?
+            .ok_or_else(|| anyhow::anyhow!("invalid header: no method"))?
             .into();
 
         Ok((proto, path, method))
+    }
+
+    pub async fn parse_header(&mut self) -> Result<HeaderMap> {
+        let mut m = HeaderMap::new();
+
+        loop {
+            self.buf.clear();
+            self.r.read_line(&mut self.buf).await?;
+
+            if self.buf.trim().is_empty() {
+                break;
+            }
+
+            let Some((key, value)) = self.buf.split_once(':') else {
+                anyhow::bail!("invalid header: no key-value pair");
+            };
+
+            m.insert(key, value.trim());
+        }
+
+        Ok(m)
     }
 }

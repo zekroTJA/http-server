@@ -1,5 +1,10 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    cell::{Ref, RefCell},
+    collections::HashMap,
+    path::PathBuf,
+};
 
+#[derive(Debug)]
 pub enum Method {
     Get,
     Head,
@@ -28,10 +33,31 @@ impl From<&str> for Method {
     }
 }
 
+#[derive(Default, Debug)]
+pub struct HeaderMap(HashMap<String, RefCell<Vec<String>>>);
+
+impl HeaderMap {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn insert<K: AsRef<str>, V: Into<String>>(&mut self, key: K, value: V) {
+        let key: String = key.as_ref().trim().to_lowercase();
+        let entry = self.0.entry(key).or_insert(RefCell::new(vec![]));
+        entry.borrow_mut().push(value.into());
+    }
+
+    pub fn get<K: AsRef<str>>(&self, key: K) -> Option<Ref<Vec<String>>> {
+        let key: String = key.as_ref().trim().to_lowercase();
+        self.0.get(&key).map(|v| v.borrow())
+    }
+}
+
+#[derive(Debug)]
 pub struct Request {
     pub method: Method,
     pub proto: String,
     pub path: PathBuf,
-    pub header: HashMap<String, Vec<String>>,
-    pub body: Vec<u8>,
+    pub header: HeaderMap,
+    pub body: Option<Vec<u8>>,
 }
