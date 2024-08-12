@@ -2,6 +2,7 @@ use std::{
     cell::{Ref, RefCell},
     collections::HashMap,
     path::PathBuf,
+    vec,
 };
 
 #[derive(Debug)]
@@ -50,6 +51,23 @@ impl HeaderMap {
     pub fn get<K: AsRef<str>>(&self, key: K) -> Option<Ref<Vec<String>>> {
         let key: String = key.as_ref().trim().to_lowercase();
         self.0.get(&key).map(|v| v.borrow())
+    }
+}
+
+impl IntoIterator for HeaderMap {
+    type Item = (String, String);
+    type IntoIter = vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let mut res = vec![];
+
+        for (k, vs) in self.0.iter() {
+            for v in vs.borrow().iter() {
+                res.push((k.to_string(), v.to_string()));
+            }
+        }
+
+        res.into_iter()
     }
 }
 

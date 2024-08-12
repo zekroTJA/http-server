@@ -1,4 +1,5 @@
 use super::{
+    readers::Text,
     request::{HeaderMap, Method, Request},
     response::ResponseBuilder,
 };
@@ -21,10 +22,15 @@ impl Conn {
 
     pub async fn serve(&mut self) -> Result<()> {
         loop {
-            let mut r = BufReader::new(&mut self.stream);
-            let req = RequestParser::new(r).parse().await?;
+            let r = BufReader::new(&mut self.stream);
+            let Some(req) = RequestParser::new(r).parse().await? else {
+                break;
+            };
 
-            ResponseBuilder::default().send(&mut self.stream).await?;
+            ResponseBuilder::default()
+                .body_with_len(Text::from("asd"))
+                .send(&mut self.stream)
+                .await?;
         }
 
         Ok(())
@@ -48,22 +54,29 @@ where
         }
     }
 
-    pub async fn parse(&mut self) -> Result<Request> {
-        let (proto, path, method) = self.parse_head().await?;
+    pub async fn parse(&mut self) -> Result<Option<Request>> {
+        let Some((proto, path, method)) = self.parse_head().await? else {
+            return Ok(None);
+        };
+
         let header = self.parse_header().await?;
 
-        Ok(Request {
+        Ok(Some(Request {
             method,
             proto,
             path,
             header,
             body: None,
-        })
+        }))
     }
 
-    pub async fn parse_head(&mut self) -> Result<(String, PathBuf, Method)> {
+    pub async fn parse_head(&mut self) -> Result<Option<(String, PathBuf, Method)>> {
         self.buf.clear();
         self.r.read_line(&mut self.buf).await?;
+
+        if self.buf.trim().is_empty() {
+            return Ok(None);
+        }
 
         let mut split = self.buf.split(' ');
         let proto = split
@@ -79,7 +92,7 @@ where
             .ok_or_else(|| anyhow::anyhow!("invalid header: no method"))?
             .into();
 
-        Ok((proto, path, method))
+        Ok(Some((proto, path, method)))
     }
 
     pub async fn parse_header(&mut self) -> Result<HeaderMap> {

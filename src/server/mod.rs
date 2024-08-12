@@ -1,4 +1,5 @@
 mod conn;
+mod readers;
 mod request;
 mod response;
 mod statuscode;
