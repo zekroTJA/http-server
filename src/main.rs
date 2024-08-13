@@ -1,11 +1,10 @@
 mod config;
 mod server;
 
-use std::env::{self, current_dir};
-
 use anyhow::Result;
 use config::Config;
 use server::Server;
+use std::env::{self, current_dir};
 use tracing::{debug, info};
 
 #[tokio::main]
@@ -39,11 +38,9 @@ async fn main() -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use std::time::Duration;
-
-    use tokio::{fs::File, io::AsyncReadExt, time::sleep};
-
     use crate::server::Server;
+    use std::time::Duration;
+    use tokio::{fs::File, io::AsyncReadExt, time::sleep};
 
     #[tokio::test]
     async fn integration_test() {

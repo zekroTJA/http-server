@@ -1,9 +1,8 @@
-use crate::server::statuscode::StatusCode;
-
 use super::{
     request::{HeaderMap, Method, Request},
     response::ResponseBuilder,
 };
+use crate::server::statuscode::StatusCode;
 use anyhow::Result;
 use std::{
     fs::Metadata,
