@@ -74,6 +74,19 @@ impl<B> ResponseBuilder<B> {
         }
     }
 
+    pub fn add_header<K: AsRef<str>, V: Into<String>>(
+        self,
+        key: K,
+        value: V,
+    ) -> ResponseBuilder<B> {
+        let mut header = self.header.unwrap_or_default();
+        header.insert(key, value);
+        Self {
+            header: Some(header),
+            ..self
+        }
+    }
+
     pub async fn send(mut self, stream: &mut TcpStream) -> Result<()>
     where
         B: AsyncRead + Unpin,

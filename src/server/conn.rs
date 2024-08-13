@@ -20,11 +20,22 @@ use tracing::{debug, error, info};
 
 pub struct Conn {
     stream: TcpStream,
+    content_root: PathBuf,
+    implicit_index: bool,
 }
 
 impl Conn {
-    pub fn new(stream: TcpStream, _: SocketAddr) -> Self {
-        Self { stream }
+    pub fn new(
+        stream: TcpStream,
+        _: SocketAddr,
+        content_root: PathBuf,
+        implicit_index: bool,
+    ) -> Self {
+        Self {
+            stream,
+            content_root,
+            implicit_index,
+        }
     }
 
     pub async fn serve(&mut self) -> Result<()> {
@@ -44,13 +55,24 @@ impl Conn {
                 continue;
             }
 
-            let path = req.path.strip_prefix("/").unwrap_or(&req.path);
+            let mut path = self
+                .content_root
+                .join(req.path.strip_prefix("/").unwrap_or(&req.path));
+            if self.implicit_index && path.is_dir() {
+                path = path.join("index.html");
+            }
+
             debug!("trying to serve file {}", path.to_string_lossy());
 
-            match open_file(path).await {
+            match open_file(&path).await {
                 Ok((f, meta)) => {
-                    ResponseBuilder::new()
-                        .body(f, meta.len() as usize)
+                    let mut b = ResponseBuilder::new();
+
+                    if let Some(mime) = mime_from_path(&path) {
+                        b = b.add_header("content-type", mime);
+                    }
+
+                    b.body(f, meta.len() as usize)
                         .send(&mut self.stream)
                         .await?
                 }
@@ -72,12 +94,6 @@ impl Conn {
 
         Ok(())
     }
-}
-
-async fn open_file(path: &Path) -> io::Result<(File, Metadata)> {
-    let f = File::open(path).await?;
-    let meta = f.metadata().await?;
-    Ok((f, meta))
 }
 
 struct RequestParser<R> {
@@ -157,5 +173,25 @@ where
         }
 
         Ok(m)
+    }
+}
+
+async fn open_file(path: &Path) -> io::Result<(File, Metadata)> {
+    let f = File::open(path).await?;
+    let meta = f.metadata().await?;
+    Ok((f, meta))
+}
+
+fn mime_from_path(path: &Path) -> Option<&'static str> {
+    let ext = path.extension()?.to_str()?;
+    match ext {
+        "html" | "htm" => Some("text/html; charset=utf-8"),
+        "txt" => Some("text/plain"),
+        "css" => Some("text/css"),
+        "js" => Some("application/javascript; charset=utf-8"),
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "webp" => Some("image/webp"),
+        _ => None,
     }
 }

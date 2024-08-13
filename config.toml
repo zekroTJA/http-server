@@ -1,0 +1,4 @@
+[server]
+content_root = "content"
+address = "127.0.0.1:8080"
+implicit_index = true

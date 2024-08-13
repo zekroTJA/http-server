@@ -60,15 +60,46 @@ impl HeaderMap {
     }
 
     pub fn insert<K: AsRef<str>, V: Into<String>>(&mut self, key: K, value: V) {
-        let key: String = key.as_ref().trim().to_lowercase();
+        let key: String = canonicalize(key.as_ref());
         let entry = self.0.entry(key).or_insert(RefCell::new(vec![]));
         entry.borrow_mut().push(value.into());
     }
 
     pub fn get<K: AsRef<str>>(&self, key: K) -> Option<Ref<Vec<String>>> {
-        let key: String = key.as_ref().trim().to_lowercase();
+        let key = canonicalize(key.as_ref());
         self.0.get(&key).map(|v| v.borrow())
     }
+}
+
+fn canonicalize(key: &str) -> String {
+    let mut upper = true;
+    let mut new = String::with_capacity(key.len());
+
+    for c in key.trim().chars() {
+        if c == '-' {
+            upper = true;
+            new.push(c);
+            continue;
+        }
+
+        if upper {
+            if !c.is_uppercase() {
+                new.push(c.to_uppercase().next().unwrap());
+            } else {
+                new.push(c);
+            }
+            upper = false;
+            continue;
+        }
+
+        if c.is_uppercase() {
+            new.push(c.to_lowercase().next().unwrap());
+        } else {
+            new.push(c);
+        }
+    }
+
+    new
 }
 
 impl IntoIterator for HeaderMap {
@@ -96,4 +127,16 @@ pub struct Request {
     pub path: PathBuf,
     pub header: HeaderMap,
     pub body: Option<Vec<u8>>,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn canonicalize_test() {
+        assert_eq!(canonicalize("content-type"), "Content-Type");
+        assert_eq!(canonicalize("Content-Type"), "Content-Type");
+        assert_eq!(canonicalize("CONTENT-type"), "Content-Type");
+    }
 }
