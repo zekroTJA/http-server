@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{
     cell::{Ref, RefCell},
     collections::HashMap,
@@ -16,6 +17,22 @@ pub enum Method {
     Options,
     Trace,
     Custom(String),
+}
+
+impl fmt::Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Get => write!(f, "GET"),
+            Self::Head => write!(f, "HEAD"),
+            Self::Post => write!(f, "POST"),
+            Self::Put => write!(f, "PUT"),
+            Self::Delete => write!(f, "DELETE"),
+            Self::Connect => write!(f, "CONNECT"),
+            Self::Options => write!(f, "OPTIONS"),
+            Self::Trace => write!(f, "TRACE"),
+            Self::Custom(v) => write!(f, "{}", v.to_uppercase()),
+        }
+    }
 }
 
 impl From<&str> for Method {
@@ -72,6 +89,7 @@ impl IntoIterator for HeaderMap {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Request {
     pub method: Method,
     pub proto: String,
