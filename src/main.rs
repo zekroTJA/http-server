@@ -36,3 +36,48 @@ async fn main() -> Result<()> {
         .listen()
         .await
 }
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+
+    use tokio::{fs::File, io::AsyncReadExt, time::sleep};
+
+    use crate::server::Server;
+
+    #[tokio::test]
+    async fn integration_test() {
+        let addr = "127.0.0.1:18735";
+
+        tokio::spawn(async move {
+            let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+            Server::new(listener, "content", true).listen().await
+        });
+        sleep(Duration::from_millis(100)).await;
+
+        let res = reqwest::get(format!("http://{addr}")).await.unwrap();
+        assert!(res.status().is_success());
+        assert_eq!(
+            res.headers()
+                .get("Content-Type")
+                .map(|v| v.to_str().unwrap()),
+            Some("text/html; charset=utf-8")
+        );
+
+        let mut index_contents = String::new();
+        File::open("content/index.html")
+            .await
+            .unwrap()
+            .read_to_string(&mut index_contents)
+            .await
+            .unwrap();
+
+        assert_eq!(res.text().await.unwrap(), index_contents);
+
+        let res = reqwest::get(format!("http://{addr}/does-not-exist"))
+            .await
+            .unwrap();
+        assert_eq!(res.status().as_u16(), 404);
+        assert_eq!(res.text().await.unwrap(), "Not Found");
+    }
+}
