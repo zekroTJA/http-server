@@ -4,6 +4,15 @@
 > This implementation is for educational purpose only and should **never** be deployed
 > or used in any way.
 
+## Why?
+
+I am a web developer since around 2020 and have created several full stack web applications using
+multiple languages and frameworks. Therefore, I am fairly familiar with the HTTP protocol, but I
+never tried implementing it myself and only used HTTP libraries.
+
+Therefore this is a little educational project to implement a simple HTTP/1.1 file server. Feel
+free to use it as inspiration or reference point for your own implementation journey.
+
 ## Resources
 
 Here is a list of resources I've used to build this implementation.
